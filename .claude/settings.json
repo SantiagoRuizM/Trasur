@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run mypy:*)",
+      "Bash(uv run python manage.py check:*)",
+      "Bash(uv run python manage.py makemigrations:*)",
+      "Bash(uv run python manage.py migrate:*)",
+      "Bash(uv run python manage.py showmigrations:*)",
+      "Bash(uv run python manage.py initdb:*)",
+      "Bash(uv run python manage.py cleandb:*)",
+      "Bash(pre-commit run:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)"
+    ]
+  }
+}

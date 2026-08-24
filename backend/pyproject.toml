@@ -1,0 +1,208 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "celery[redis]>=5.6.2",
+    "colorlog>=6.10.1",
+    "debugpy>=1.8.20",
+    "django>=6.0.3",
+    "django-cors-headers>=4.7.0",
+    "django-celery-results>=2.6.0",
+    "django-debug-toolbar>=6.2.0",
+    "django-extensions>=4.1",
+    "django-filter>=25.2",
+    "django-filter-stubs>=0.1.3",
+    "django-simple-history>=3.11.0",
+    "django-stubs-ext>=5.2.9",
+    "djangorestframework>=3.16.1",
+    "djangorestframework-simplejwt[crypto]>=5.5.1",
+    "drf-nested-routers>=0.95.0",
+    "drf-spectacular>=0.29.0",
+    "factory-boy>=3.3.3",
+    "nplusone>=1.0.0",
+    "psycopg[binary,pool]>=3.3.3",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "pytest-xdist>=3.8.0",
+    "python-dotenv>=1.2.2",
+    "weasyprint>=68.1",
+    "sendgrid>=6.12.5",
+    "django-celery-beat>=2.9.0",
+    "openpyxl>=3.1.5",
+    "jinja2>=3.1.6",
+]
+
+[dependency-groups]
+dev = [
+    "detect-secrets>=1.5.0",
+    "django-stubs[compatible-mypy]>=5.2.9",
+    "djangorestframework-stubs>=3.16.8",
+    "httpx>=0.28.1",
+    "mypy>=1.19.1",
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pytest-django>=4.12.0",
+    "pytest-mock>=3.15.1",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.11",
+    "time-machine>=3.2.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "proyecto3.settings"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--cov=proyecto3",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+]
+markers = [
+    "integration: full HTTP stack tests against real DB",
+    "slow: tests that take longer than 1s",
+    "user_story(story_id, name=''): documents and tracks a user story",
+]
+
+[tool.mypy]
+python_version = "3.14"
+mypy_path = 'backend/'
+strict = true
+disallow_any_generics = false
+explicit_package_bases = true
+show_column_numbers = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+check_untyped_defs = true
+warn_unreachable = true
+warn_redundant_casts = true
+no_implicit_optional = true
+extra_checks = true
+show_error_codes = true
+show_error_context = true
+pretty = true
+enable_error_code = ["ignore-without-code"]
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "proyecto3.settings"
+
+[[tool.mypy.overrides]]
+module = [
+    "factory",
+    "factory.*",
+    "factory.django",
+    "faker",
+    "celery",
+    "celery.states",
+    "celery.result",
+    "celery.exceptions",
+    "celery.schedules",
+    "openpyxl",
+    "openpyxl.*",
+    "debug_toolbar.toolbar",
+    "simple_history.*",
+    "sendgrid",
+    "sendgrid.*",
+    "python_http_client",
+    "python_http_client.*",
+    "weasyprint",
+    "weasyprint.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["proyecto3.apps.*.factories.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["httpx", "httpx.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["user_stories.*"]
+ignore_missing_imports = true
+
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",
+    "F",
+    "I",
+    "N",
+    "B", "B9",
+    "S",
+    "D",
+    "DJ",
+    "UP",
+    "T20",
+    "SIM",
+    "C90",
+    "ASYNC",
+    "RUF",
+    "TCH",
+    "RET",
+    "ARG",
+    "ERA",
+    "PTH",
+    "PL",
+]
+ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    "D205",
+    "UP046",
+    "PLR0913",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"manage.py" = ["PLC0415"]
+"*/views/*.py" = ["RUF012", "ARG002"]
+"*/migrations/*.py" = ["E501", "RUF012"]
+"*/factories/*.py" = ["RUF012", "S105", "S106"]
+"*/tests/**/*.py" = ["S101", "S105", "S106", "PLR2004", "ARG001", "ARG002"]
+"conftest.py" = ["S101", "S105", "S106", "ARG001"]
+"*/user_stories/config.py" = ["S105", "S106"]  # seeded-admin test credentials
+# Pydantic DTOs need their annotations resolvable at runtime — model building fails with
+# "is not fully defined" if a name only exists under TYPE_CHECKING.
+"*/dtos/*.py" = ["TC001", "TC002", "TC003"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic resolves field annotations when it builds the model, so imports used in a
+# DTO's annotations must stay at runtime. This covers models whose pydantic base is a
+# *direct* base; the `*/dtos/*.py` per-file-ignore above covers the rest, since ruff
+# does not follow multi-level inheritance across modules (e.g. CustomerScopedViewContext
+# -> TenantScopedAuthContext -> AuthContext -> CoreDTO).
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "pydantic_settings.BaseSettings",
+    "proyecto3.apps.core.domain.dtos.core.CoreDTO",
+]
+runtime-evaluated-decorators = ["dataclasses.dataclass"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend", "proyecto3"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

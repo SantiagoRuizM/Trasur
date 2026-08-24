@@ -1,0 +1,101 @@
+version: '3.8'
+
+volumes:
+  redis_data:
+    driver: local
+  proyecto3_volume:
+    driver: local
+
+services:
+  proyecto3:
+    image: proyecto3
+    build:
+      context: ./backend
+      args:
+        APP_NAME: proyecto3
+        PYTHON_VERSION: "3.14"
+      dockerfile: Dockerfile
+    command: >
+      sh -c "
+      python manage.py makemigrations &&
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000"
+    env_file: .env
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+    volumes:
+      - ./backend:/opt/backend
+    depends_on:
+      proyecto3_db_service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure
+
+  proyecto3_db_service:
+    image: proyecto3_db_image
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - 5432:5432
+    env_file: .env
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_NON_ROOT_USER
+      - POSTGRES_NON_ROOT_PASSWORD
+    volumes:
+      - proyecto3_volume:/var/lib/postgresql
+      - ./db/init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: bitnami/redis:latest
+    env_file: .env
+    ports:
+      - 6379:6379
+    expose:
+      - 6379
+    volumes:
+      - redis_data:/bitnami/redis/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  workers:
+    image: proyecto3
+    env_file: .env
+    command: celery -A proyecto3 worker -l info --concurrency=2
+    volumes:
+      - ./backend:/opt/backend
+    depends_on:
+      proyecto3_db_service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Fires CELERY_BEAT_SCHEDULE (currently: the daily monthly-work-order generation check).
+  # DatabaseScheduler keeps the schedule in Postgres via django_celery_beat, so it survives a
+  # restart and stays editable from the admin — and needs no shared schedule file on disk.
+  # Run exactly one replica: a second beat would double-fire every scheduled task.
+  beat:
+    image: proyecto3
+    env_file: .env
+    command: celery -A proyecto3 beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - ./backend:/opt/backend
+    depends_on:
+      proyecto3_db_service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy

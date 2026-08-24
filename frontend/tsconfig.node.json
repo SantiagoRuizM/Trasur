@@ -1,0 +1,36 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+        "target": "es2023",
+        // DOM is here for the browser-context files this project now covers:
+        // Playwright's `page.evaluate`/`addInitScript` callbacks are serialised
+        // and run in the page, and `.storybook/preview.tsx` imports app CSS.
+        "lib": ["ES2023", "DOM"],
+        "module": "esnext",
+        "types": ["node", "vite/client"],
+        "skipLibCheck": true,
+
+        /* Bundler mode */
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "verbatimModuleSyntax": true,
+        "moduleDetection": "force",
+        "noEmit": true,
+
+        /* Linting */
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "erasableSyntaxOnly": true,
+        "noFallthroughCasesInSwitch": true
+    },
+    "include": [
+        "vite.config.ts",
+        "openapi-ts.config.ts",
+        "vitest.config.ts",
+        ".storybook/main.ts",
+        ".storybook/preview.tsx",
+        "playwright.config.ts",
+        "e2e/**/*.ts"
+    ]
+}

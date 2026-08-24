@@ -1,0 +1,58 @@
+{
+    "files.exclude": {
+      "**/.git": true,
+      "**/.svn": true,
+      "**/.hg": true,
+      "**/.DS_Store": true,
+      "**/Thumbs.db": true,
+      "**/node_modules": true,
+      "**/.next": true,
+      "**/.ruff_cache": true,
+      "**/.mypy_cache": true,
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/*.pyo": true,
+      "**/.venv": true,
+      "**/.pytest_cache": true,
+      "**/.poetry": true,
+  },
+  "python.analysis.extraPaths": ["./backend/"],
+  "terminal.integrated.env.osx": {
+    "UV_PROJECT": "./backend/"
+  },
+  "terminal.integrated.env.linux": {
+    "UV_PROJECT": "./backend/"
+  },
+  "terminal.integrated.env.windows": {
+    "UV_PROJECT": "./backend/"
+  },
+  "python.testing.pytestArgs": ["backend", "-n", "auto"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "ruff.configuration": "./backend/pyproject.toml",
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  },
+  "eslint.workingDirectories": ["./frontend"],
+  "files.watcherExclude": {
+    "**/routeTree.gen.ts": true
+  },
+  "search.exclude": {
+    "**/routeTree.gen.ts": true
+  },
+  "files.readonlyInclude": {
+    "**/routeTree.gen.ts": true
+  },
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.configPath": "./frontend/.prettierrc.json",
+  "prettier.requireConfig": true,
+  "cSpell.words": [
+    "Shadcn"
+  ],
+}

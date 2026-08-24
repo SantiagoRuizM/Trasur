@@ -1,0 +1,332 @@
+name: Checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  check-secrets:
+    name: Checking for Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+      - name: Secret Scanner
+        uses: secret-scanner/action@0.0.2
+
+  frontend_checks:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: ${{ needs.detect_changes.outputs.frontend == 'true' && github.event.pull_request.draft == false }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+          node-version-file: frontend/.nvmrc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ci_prettier
+        run: npm run ci_prettier
+
+      - name: ci_lint
+        run: npm run ci_lint
+
+      - name: ci_typecheck
+        run: npm run ci_typecheck
+
+      - name: ci_build
+        run: npm run ci_build
+
+  backend_setup:
+    name: Backend Setup
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: ${{ needs.detect_changes.outputs.backend == 'true' && github.event.pull_request.draft == false }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache backend Python env
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/.venv
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-python-3.14-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-python-3.14-
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+  backend_checks:
+    name: Backend Check (${{ matrix.check }})
+    runs-on: ubuntu-latest
+    needs: [detect_changes, backend_setup]
+    if: ${{ needs.detect_changes.outputs.backend == 'true' && github.event.pull_request.draft == false }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [ruff, mypy]
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache backend Python env
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/.venv
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-python-3.14-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-python-3.14-
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run ${{ matrix.check }}
+        run: |
+          case "${{ matrix.check }}" in
+            ruff)
+              uv run ruff format --check --config=pyproject.toml .
+              uv run ruff check --config=pyproject.toml .
+              ;;
+            mypy)
+              uv run mypy --config-file pyproject.toml .
+              ;;
+          esac
+
+  pytest:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: [detect_changes, backend_setup]
+    if: ${{ needs.detect_changes.outputs.backend == 'true' && github.event.pull_request.draft == false }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache backend Python env
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/.venv
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-python-3.14-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-python-3.14-
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run pytest
+        run: uv run pytest -v --tb=short --cov-fail-under=80 -n auto
+
+  validate_api_schema:
+    name: Validate API Schema Sync
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: ${{ (needs.detect_changes.outputs.backend == 'true' || needs.detect_changes.outputs.frontend == 'true') && github.event.pull_request.draft == false }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+          node-version-file: frontend/.nvmrc
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Create .env file for CI
+        run: |  # pragma: allowlist secret
+          cat > .env << 'EOF'
+          ENV=docker
+          DEBUG=true
+
+          TITLE=Proyecto3
+          DESCRIPTION=
+          VERSION=0.0.1
+
+          ALLOWED_HOSTS=["proyecto3", "localhost", "127.0.0.1", "[::1]", "0.0.0.0"]
+          CORS_ALLOWED_ORIGINS=["http://localhost:3000", "http://localhost:8000", "http://localhost"]
+
+          POSTGRES_HOST=proyecto3_db_service
+          POSTGRES_DB=proyecto3_db
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_NON_ROOT_USER=postgres_non_root
+          POSTGRES_NON_ROOT_PASSWORD=postgres_non_root
+
+          DJANGO_SECRET_KEY="django-insecure-ci-test-key"
+
+          SERVER_API_BASE_URL=http://proyecto3:8000/api/v1
+          NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
+
+          ACCESS_TOKEN_LIFETIME=5
+          REFRESH_TOKEN_LIFETIME=1
+
+          REDIS_USERNAME=
+          REDIS_PASSWORD=password123
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          EOF
+
+      - name: Start database and dependencies
+        run: |
+          docker compose up -d proyecto3_db_service
+          echo "Waiting for database to be ready..."
+
+      - name: Wait for database to be healthy
+        run: |
+          timeout 60 bash -c 'until docker compose ps proyecto3_db_service | grep -q "healthy"; do
+            echo "Waiting for database...";
+            docker compose ps proyecto3_db_service;
+            sleep 3;
+          done'
+          echo "Database is ready!"
+
+      - name: Run migrations
+        run: |
+          echo "Running database migrations..."
+          docker compose run --rm proyecto3 ./manage.py migrate
+          echo "Migrations completed successfully"
+
+      - name: Start backend API server
+        run: |
+          echo "Starting proyecto3 API server..."
+          docker compose up -d proyecto3
+          echo "Proyecto3 service started"
+
+      - name: Check services status
+        run: |
+          echo "=== Docker Compose Services Status ==="
+          docker compose ps
+          echo ""
+          echo "Waiting 30 seconds for services to initialize..."
+          sleep 30
+
+      - name: Generate TypeScript schema
+        working-directory: frontend
+        run: |
+          echo "Generating TypeScript schema from API..."
+          npx openapi-ts
+
+      - name: Check schema is up to date
+        working-directory: frontend
+        run: |
+          if ! git diff --exit-code ./src/shared/types/types.gen.ts; then
+            echo "❌ Error: Generated schema.ts differs from committed version!"
+            echo "The API schema is out of sync with the backend."
+            echo ""
+            echo "To fix this:"
+            echo "1. Start your backend server locally: docker compose up"
+            echo "2. Run: cd frontend && npm run getautotypes"
+            echo "3. Commit the updated schema.ts file"
+            echo ""
+            echo "Showing diff:"
+            git diff ./src/shared/types/types.gen.ts
+            exit 1
+          fi
+          echo "✅ API schema is in sync with backend"
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "=== Docker Compose Services Status ==="
+          docker compose ps
+          echo ""
+          echo "=== Proyecto3 Service Logs ==="
+          docker compose logs proyecto3
+          echo ""
+          echo "=== Database Service Logs ==="
+          docker compose logs proyecto3_db_service
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
