@@ -49,3 +49,7 @@ Proyecto3/
   from this folder, then audit with `detect-secrets audit .secrets.baseline`.
 - Add Shadcn components with `cd frontend && npx shadcn@latest add <component>`.
 - `pre-commit install` once, then `pre-commit run --all-files` is the full local gate for both apps.
+
+  ## Colaboradores
+* **Bairon Cossio** - ¡Bairon estuvo aquí! 🚀
+
